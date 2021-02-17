@@ -1,0 +1,3535 @@
+=== Check Bash Version ===
+
+{{{bash
+echo $BASH_VERSION
+}}}
+
+= Variables =
+
+{{{bash
+myname="Hans Schmid"
+echo "Hello, $myname_lst"
+}}}
+
+{{{bash
+echo $myname
+}}}
+
+= String interpolation =
+
+{{{bash
+echo "$myname"
+}}}
+
+==== Literal string ====
+
+{{{bash
+echo '$myname'
+}}}
+
+{{{bash
+type pwd
+}}}
+
+{{{bash
+echo $(pwd)
+}}}
+
+{{{bash
+echo $PWD   # the same
+}}}
+
+=== Backticks are regarded as obsolete. But hard to kill in the field. ===
+
+{{{bash
+echo `pwd`
+}}}
+
+=== Keywords ===
+---------------
+Braces, double brackets and exclamation mark are keywords. That means in order to use them correctly you need spaces around them!
+
+{{{bash
+# Bash keywords
+type if then elif else fi time for in until while do done case esac coproc select function { } [[ ]] !
+}}}
+
+`which` is obsolete. You'll find it a lot though.<br>
+**`which` is a bitch.**
+
+{{{bash
+type which
+}}}
+
+Use **type -p** instead because it's a builtin!
+
+{{{bash
+type -p which
+}}}
+
+# Functions
+
+1. Functions in Bash are not functions like in other languages. They are actually `commands`. Functions are used as if they were command line binaries or scripts.
+2. Shell commands are connected by `pipes` (aka streams), and not by fundamental or user-defined data types as in _real_ programming languages. There is `no such thing as a return value` for a command. (Although there is a return statement - see below.)
+3. When a function wants to get input it reads it from its input stream, or the argument list. In both cases text strings have to be parsed. The shell with its pipe-based architecture is `purely string-based`!
+4. When a command wants to return something it has to `echo/printf` it to its output stream.
+5. The caller can use command substitution `$()` to capture the output.
+6. Another practiced way is to store the return values in dedicated, `global variables`. Writing to the output stream is clearer and more flexible, because it can also take binary data, though.
+7. Think of the `exit code` as a bonus that other languages don't have, or as a `Schmutzeffekt` of shell functions. The meaning of the exit code is up to the shell programmer!
+8. Often by convention an exit status of `0 means success`, `1-255 means failure` and the exit code can be regarded as a failure number.
+9. Just to make sure: `return/exit` can only take a value from 0-255. Values other than 0 are `not necessarily errors`. There is always an `exit status`.
+10. The `argument list` is only for `decoration` and you never put anything inside them.
+
+## How to define functions
+There are two ways to define functions.
+
+### 1. With the `function` keyword
+
+a) The `argument list` is `optional`.<br>
+b) `Coding style`: Do not use an argument list.
+
+{{{bash
+function success {
+    echo "I am successful!"
+    return 0
+}
+}}}
+
+### 2. Without the `function` keyword
+
+The `argument list` is `mandatory`.
+
+{{{bash
+success() {
+    echo "I am successful!"
+    return 0
+}
+}}}
+
+### Passing and Accessing Arguments
+
+Use `$1`, `$2`, `$3`, ..., `$9`, `${10}`, `${11}`, ... to catch the parameters.
+
+{{{bash
+function printme {
+    echo "You gave me $# argument(s)!"
+    echo -n $1
+}
+}}}
+
+{{{bash
+printme
+}}}
+
+{{{bash
+printme 'Hello'
+}}}
+
+{{{bash
+printme 'Hello' 'World'
+}}}
+
+### Returning Values
+
+#### 1. echo/printf values to the output stream
+
+{{{bash
+function add {
+    # $((...)) to calculate mathematical expressions
+    sum=$(( $1 + $2 ))
+    echo $sum
+}
+}}}
+
+{{{bash
+add 1 2
+}}}
+
+#### 1. Capture Return Values via Command Substition Using `$()`
+
+{{{bash
+result=$(add 1 2)
+echo $result
+}}}
+
+#### 2. Use Global Variables to Provide Return Values
+The `sum` variable in our add function is actually a `global variable`.
+
+{{{bash
+echo $sum
+}}}
+
+### Variable Scope
+
+Using `local variables` in order to not pollute the `global namespace`.
+
+{{{bash
+function add_local {
+    local sum=$(($1+$2))
+    echo -n $sum
+}
+}}}
+
+{{{bash
+add_local 5 6
+}}}
+
+The global variable from above did not change.
+
+{{{bash
+echo $sum
+}}}
+
+#### 3. Argument References
+As of Bash 4.3+, we can pass an input argument by reference using `declare -n 'reference'`.
+
+{{{bash
+function add_by_ref {
+    declare -n add_ref=$3
+    add_ref=$(( $1 + $2 )) 
+}
+}}}
+
+{{{bash
+add_by_ref 4 5 myAddRefResult
+}}}
+
+{{{bash
+echo $myAddRefResult
+}}}
+
+### Sub-shells
+1. A `sub-shell` is a special type of command group that allows us to spawn a new execution environment from the current shell.
+2. Instead of curly braces, we use `parentheses` to delimit the function body.
+
+{{{bash
+function add_subshell (
+    # 'sum' is a global variable
+    sum=$(( $1 + $2 ))
+    echo $sum 
+)
+}}}
+
+{{{bash
+add_subshell 2 3
+}}}
+
+Our global variable did not change because the function was executed in a sub-shell.
+
+{{{bash
+echo $sum
+}}}
+
+### Recursion
+Recursion is possible but not typical for shell programming.
+
+{{{bash
+function factorial {
+    if [ $1 -le 1 ]; then
+        echo -n 1
+    else
+        echo -n $(( $(factorial $(( $1 - 1 ))) * $1))
+    fi 
+}
+}}}
+
+{{{bash
+factorial 5
+}}}
+
+{{{bash
+factorial 10
+}}}
+
+# Arrays
+
+## Declaring Arrays
+
+There are two ways:<br>
+1. Declare a variable `explicitly` to be an array with `declare -a 'arrayname'`.
+2. Create an array `on the fly` by just assigning values.
+
+#### Declaring an Array explicitly
+
+{{{bash
+# declare array
+declare -a pioneers
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+#### Creating an Array on the Fly
+An array is automatically created when you assign a value to a variable.
+
+{{{bash
+# make pioneers vanish in the void
+unset pioneers
+}}}
+
+{{{bash
+pioneers[0]='Ken Thompson'
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+You can assign multiple values at once.
+
+{{{bash
+unset pioneers
+}}}
+
+{{{bash
+pioneers=('Ken Thompson' 'Brian Kernighan' 'Dennis Ritchie')
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+#### Assigning Values to an Array
+
+An array doesn't need to have continuous indexes.
+
+{{{bash
+pioneers[20]='Douglas McIlroy'
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+### Accessing Array Elements
+
+The default index is zero.
+
+{{{bash
+echo $pioneers
+}}}
+
+This does not work as one might expect coming from a mainstream programming language.
+
+{{{bash
+echo $pioneers[1]
+}}}
+
+This is the correct way.
+
+{{{bash
+echo ${pioneers[1]}
+}}}
+
+Now the whole array:
+
+{{{bash
+echo ${pioneers[@]}
+}}}
+
+{{{bash
+echo ${pioneers[*]}
+}}}
+
+We"ll see the difference of the two commands above when we cover looping.
+
+{{{bash
+declare -p pioneers
+}}}
+
+### Appending an Arrays  with `+=(another_array)`
+
+{{{bash
+unset pioneers
+}}}
+
+You can also explicitly specify the index of the array entry.
+
+{{{bash
+pioneers=('Ken Thompson' 'Brian Kernighan' 'Dennis Ritchie' [20]='Douglas McIlroy')
+}}}
+
+{{{bash
+pioneers+=('Linus Torvals' 'Richard Stallman')
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+You often see this workaround in older scripts:
+
+{{{bash
+unset pioneers
+}}}
+
+{{{bash
+pioneers=('Ken Thompson' 'Brian Kernighan' 'Dennis Ritchie' [20]="Douglas McIlroy")
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+This workaround of appending array elements works only when indices are consecutive.
+
+{{{bash
+pioneers=("${pioneers[@]}" 'Joe Ossanna' 'Linus Torvalds')
+}}}
+
+{{{bash
+# Douglas McIlroy has now index 3!
+declare -p pioneers
+}}}
+
+The quotes are essential!
+
+{{{bash
+pioneers=(${pioneers[@]} 'Richard Stallman')
+}}}
+
+{{{bash
+# Every word is now a separate entry in the array.
+declare -p pioneers
+}}}
+
+### Slicing Arrays Using `(${array[@]:start:length})`
+
+{{{bash
+unset pioneers
+}}}
+
+Without using quotes.
+
+{{{bash
+pioneers=(Ken Brian Dennis Douglas)
+}}}
+
+First parameter is index, second parameter is length!
+`Note the parentheses!`
+
+{{{bash
+pioneers2=(${pioneers[@]:1:2})
+}}}
+
+{{{bash
+declare -p pioneers2
+}}}
+
+Not what you expected:
+
+{{{bash
+pioneers2=${pioneers[@]:1:2}
+}}}
+
+{{{bash
+declare -p pioneers2
+}}}
+
+Slice from the beginning:
+
+{{{bash
+pioneers2=(${pioneers[@]::2})
+}}}
+
+{{{bash
+declare -p pioneers2
+}}}
+
+Slice from the end:
+
+{{{bash
+pioneers2=(${pioneers[@]:2})
+}}}
+
+{{{bash
+declare -p pioneers2
+}}}
+
+### Getting Indices with `${!array[@]}`
+
+{{{bash
+pioneers=(Ken Brian Dennis Douglas)
+}}}
+
+{{{bash
+echo -n ${!pioneers[@]}
+}}}
+
+{{{bash
+pioneers=(Ken Brian Dennis Douglas [10]=Joe)
+}}}
+
+{{{bash
+echo -n ${!pioneers[@]}
+}}}
+
+### Removing Array Elements Using `unset`
+
+{{{bash
+pioneers=('Ken Thompson' 'Brian Kernighan' 'Dennis Ritchie' [20]="Douglas McIlroy")
+}}}
+
+Bye, bye, Brian!
+
+{{{bash
+unset pioneers[1]
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+### Array Length `${#array[@]}` or `${#array[*]}`
+
+{{{bash
+echo -n ${#pioneers[@]}
+}}}
+
+{{{bash
+echo -n ${#pioneers[*]}
+}}}
+
+{{{bash
+# This will get the size of an element.
+echo -n 'Length of the third element:' ${#pioneers[2]}
+}}}
+
+### Looping through an Array with `"${array[@]}"` or `${array[@]}`
+
+{{{bash
+i=1
+for item in "${pioneers[@]}"; do  # Note the quotes!
+    echo $((i++)). $item
+done
+}}}
+
+{{{bash
+# When we use "${pioneers[*]}" we get only one value which is the whole array.
+i=1
+for item in "${pioneers[*]}"; do
+    echo $((i++)). $item
+done
+}}}
+
+{{{bash
+# Looping through the indices.
+for index in "${!pioneers[@]}"; do
+    echo -e 'Index: '$index'\t'${pioneers[$index]}
+done
+}}}
+
+#### Using File Globbing to Initialize an Array
+
+{{{bash
+files=(/etc/[abcdefg]*.conf)
+}}}
+
+{{{bash
+declare -p files
+}}}
+
+{{{bash
+i=1
+for file in "${files[@]}"; do
+    echo $((i++)). $file
+done
+}}}
+
+#### Loading File Content into an Array Using Command Substitution `$(commands)`
+
+{{{bash
+unset pioneers
+}}}
+
+{{{bash
+cat pioneers.txt
+}}}
+
+{{{bash
+# Load array from file using command substitution.
+pioneers=( $(cat pioneers.txt) )
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+{{{bash
+for pioneer in "${pioneers[@]}"; do
+    echo $pioneer
+done
+}}}
+
+#### Loading Arrays from a File with `mapfile`
+
+{{{bash
+mapfile -t pioneers < pioneers.txt # -t strips newline
+}}}
+
+{{{bash
+declare -p pioneers
+}}}
+
+You can leave out an array name. Bash will use `MAPFILE` in this case.
+
+{{{bash
+mapfile -t < pioneers.txt
+}}}
+
+{{{bash
+declare -p MAPFILE
+}}}
+
+# Associate Arrays
+
+## Differences from Arrays
+
+1. `declare -A` (seems to be mandatory!)
+2. `Index is a string`, not a number (0,1,2,3,..)
+
+{{{bash
+declare -A proglangs=([Python]="Guido van Rossum" [Ruby]="Yukihiro Matsumoto" [C++]="Bjarne Stroustrup")
+}}}
+
+{{{bash
+declare -p proglangs
+}}}
+
+{{{bash
+echo -n ${!proglangs[@]}
+}}}
+
+{{{bash
+echo ${proglangs[Python]}
+}}}
+
+{{{bash
+proglangs[Erlang]="Joe Armstrong"
+}}}
+
+{{{bash
+declare -p proglangs
+}}}
+
+{{{bash
+proglangs+=([Javascript]="Brendan Eich" [Perl]="Larry Wall")
+}}}
+
+{{{bash
+declare -p proglangs
+}}}
+
+{{{bash
+# keys
+echo -n ${!proglangs[@]}
+}}}
+
+{{{bash
+# size of dictionary
+echo -n ${#proglangs[@]}
+}}}
+
+{{{bash
+# remove an entry
+unset proglangs[Javascript]
+}}}
+
+{{{bash
+echo -n ${#proglangs[@]}
+}}}
+
+{{{bash
+echo -n ${!proglangs[@]}
+}}}
+
+{{{bash
+i=1
+for proglang in "${proglangs[@]}"; do
+    echo $((i++)). $proglang
+done
+}}}
+
+{{{bash
+for key in ${!proglangs[@]}; do
+    echo -e $key'\t'${proglangs[$i]}
+done
+}}}
+
+### Variable Substitution
+
+**Variable substitutions should only be used inside `double quotes`.**
+
+{{{bash
+calculation='2 * 3'
+echo "$calculation"         # prints 2 * 3
+echo $calculation           # prints 2, the list of files in the current directory, and 3
+echo "$(($calculation))"    # prints 6
+}}}
+
+Outside of double quotes, `$var` takes the value of var, `splits` it into whitespace-delimited parts, and interprets each part as a `glob` (wildcard) pattern. Unless you want this behavior, `always put $var inside double quotes: "$var"`.
+
+The same applies to command substitutions: `"$(mycommand)"` is the output of mycommand, `$(mycommand)` is the result of `split & glob` on the output.
+
+<code>echo "$var"            # good
+echo "$(mycommand)"     # good 
+another=$var            # also works, assignment is implicitly double-quoted!!!
+make -D THING=$var      # BAD! This is not a bash assignment.
+make -D THING="$var"    # good
+make -D "THING=$var"    # also good</code>
+
+#### Command substitutions get their own quoting contexts. Writing arbitrarily nested substitutions is easy because the parser will keep track of nesting depth instead of greedily searching for the first `"` character. 
+
+{{{bash
+c=3
+echo "formatted text: $(printf "a + b = %04d" "${c}")" # “formatted text: a + b = 0003”
+}}}
+
+#### Variable arguments to a command substitution should be double-quoted inside the expansions as well
+
+{{{bash
+# echo "$(mycommand "$arg1" "$arg2")"
+}}}
+
+# Loops, Case and Select
+
+1. `For` Loops
+2. `For` Loops/`C-Syntax`
+3. `While` Loops
+4. `Until` Loops
+5. `Case` Command
+6. `Select` Command
+
+It is easier to use double quotes all the time than to remember when they are needed. They are needed most of the time, so you'll need to learn when they aren't needed, not when they are needed.
+
+In a nutshell, double quotes are necessary wherever a list of words or a pattern is expected. They are optional in contexts where a raw string is expected by the parser.
+
+## For Loops
+General structure:
+<br><code>
+for varname in list
+do
+    commands using $varname"
+done
+</code>
+
+{{{bash
+for day in Mon Tue Wed Thu Fri; do
+    echo "Weekday: $day"
+done
+}}}
+
+{{{bash
+weekdays="Mon Tue Wed Thu Fri"
+for day in $weekdays; do  # no double quotes here; weekdays is already double quoted
+    echo "Weekday: $day"
+done
+}}}
+
+#### But do not use doubled double quotes.
+
+{{{bash
+weekdays="Mon Tue Wed Thu Fri"
+for day in "$weekdays"; do
+    echo "Weekday: $day"
+done
+}}}
+
+{{{bash
+for username in $(awk -F: '{print $1}' /etc/passwd); do
+    echo "Username: $username"
+done
+}}}
+
+{{{bash
+for item in /tmp/*; do
+    echo "$item"
+done
+}}}
+
+{{{bash
+for item in /tmp/d*; do
+    echo "$item"
+done
+}}}
+
+#### Breaking out of a Loop
+
+{{{bash
+for day in Mon Tue Wed Thu Fri; do
+    if [ $day == "Thu" ]; then
+        break;
+    fi
+    echo "Weekday: $day"
+done
+}}}
+
+#### Continuing a Loop
+
+{{{bash
+for day in Mon Tue Wed Thu Fri Sat Sun; do
+    echo -n "$day"
+    if [ $day == "Sat" -o $day == "Sun" ]; then
+        echo " (WEEKEND)"
+        continue;
+    fi
+    echo " (weekday)"
+done
+}}}
+
+#### Range of numbers
+
+{{{bash
+for num in {1..10}; do
+    echo "Number: $num"
+done
+}}}
+
+{{{bash
+for num in {1..10..2}; do
+    echo "Number: $num"
+done
+}}}
+
+## For Loops Using C-Syntax
+
+{{{bash
+for (( i=1; i <= 5; i++ )); do
+    echo "Random number $i: $((RANDOM%100))"
+done
+}}}
+
+{{{bash
+i=0
+for (( ; ; )); do
+    echo "Number: $((i++))"
+    [ $i -gt 10 ] && break
+    sleep $(( RANDOM % 10 ))
+done
+}}}
+
+{{{bash
+for ((i=1, j=10; i <= 5 ; i++, j=j+5)); do
+    echo "Number $i: $j"
+done
+}}}
+
+## While Loops
+
+{{{bash
+type true
+}}}
+
+{{{bash
+i=0
+while true; do
+    echo "Number: $((i++))"
+    [ $i -gt 10 ] && break
+    sleep $(( RANDOM % 10 ))
+done
+}}}
+
+{{{bash
+i=1
+while [ $i -le 5 ]; do
+  echo "$((i++)) time(s)"
+done
+}}}
+
+## Until Loops
+
+{{{bash
+i=1
+until [ $i -gt 5 ]; do
+    echo "$((i++)) time(s)."
+done
+}}}
+
+## Case Command
+
+General structure:
+<code>
+case  $variable-name  in
+      pattern1|pattern2|pattern3)       
+        command1
+        ...
+        ....
+        commandN
+        ;;
+      pattern4|pattern5|pattern6)
+     	command1
+        ...
+        ....
+        commandN
+        ;;            
+      pattern7|pattern8|patternN)       
+     	command1
+        ...
+        ....
+        commandN
+        ;;
+      *)              
+esac
+</code>
+
+{{{bash
+NOW=$(date +"%a")
+case $NOW in
+    Mon)
+        echo "FULL backup!";;
+    Tue|Wed|Thu|Fri)
+        echo "PARTIAL backup!";;
+    Sat|Sun)
+        echo "NO backup!";;
+    *) ;;
+esac
+}}}
+
+### Case terminators
+
+The `;&` terminator causes case to also execute the next block without testing its pattern. The `;;&` operator is like `;;` except the case statement doesn't terminate after executing the associated list. Bash just continues testing the next pattern as though the previous pattern didn't match.
+
+## Select Command
+
+Execute this in a real Bash shell:
+
+<code>select state in yes no dk; do
+    echo "Your selection is: $state"
+    break # without it you have an endless loop
+done</code>
+
+# Patterns and Regular Expressions
+
+## Pattern Matching in Bash
+1. Globs
+2. Extended Globs
+3. Brace Expansion
+4. Basic Regular Expressions
+5. Extended Regular Expressions
+
+### Globs
+
+#### Bash Globbing Options
+1. nocaseglob
+2. nocasematch
+3. nullglob
+4. globstar
+5. extglob
+
+#### Globs vs. Regular Expressions
+Glob<br>
+    <code>[0-9]?file*.txt</code><br><br>
+Regular Expression<br>
+    <code>[0-9].file.*.txt</code>
+
+1. Globs are faster and less expressive than REs.
+2. Globs and REs look similar but are different.
+3. Globs match files!
+4. REs match text/strings!
+
+Using a Glob with ls<br>
+<code>ls [0-9]?_file*.txt</code><br>
+will be expanded by Bash to:<br>
+<code>ls 1_file-rev1.txt 2_file-rev1.txt 3_file-rev1.txt</code><br>
+`ls` itself is unaware of this expansion!
+
+To achieve the same with RE you had to do something like this:<br>
+<code>ls | grep '[0-9]._file.*.txt'</code><br>
+
+This command uses REs and globs:<br>
+<code>grep '^A.*\.txt' *.txt</code>
+Will be expanded by Bash to:<br>
+<code>grep '^A.*\.txt' file1.txt file2.txt </code><br>
+Then grep will use the RE to search for text in those files. To prevent Bash from interpreting the RE as a glob it has to be enclosed in single quotes!
+
+#### Types of Shell Expansion
+Expansions happens in this order:
+1. `Brace` expansion
+2. `Tilde` expansion
+3. `Parameter` expansion
+4. `Variable` expansion 
+5. `Arithmetic` expansion and `command substitution` from left to right
+7. `Word splitting`
+8. Filename expansion (expanding `globs` into lists)
+
+Then `Quote removal` happens.
+
+`Note:` Filename expansion which we think about most is done last!
+
+#### Expansions That Can Change the Number of Words
+1. Brace expansion
+2. Word splitting
+3. Filename expansion
+
+#### Expansions That Do Not Change the Number of Words
+1. Arithmetic expansion
+2. Command substitution
+3. Variable expansion
+4. Parameter expansion
+
+#### File Globs
+
+|File Glob|Explanation|
+|:--|:--|
+|`*` (Asterisk/Star)|Matches any number of any characters.|
+|`?` (Question mark)|Matches `EXACTLY` one character - can be any character.|
+|`[]` (Character set)|Matches exactly one character - but we define which ones.|
+|`[^]`|Invert the character set.|
+|`[!]`|Invert the character set. Same as `[^]`. Preferred as ^ can also be an anchor meaning beginning of line.|
+
+{{{bash
+cd 01
+}}}
+
+{{{bash
+ls *
+}}}
+
+{{{bash
+ls *.txt
+}}}
+
+{{{bash
+ls F*
+}}}
+
+{{{bash
+ls file*.txt
+}}}
+
+{{{bash
+ls file?.txt # file.txt is not returned
+}}}
+
+{{{bash
+ls file??.txt
+}}}
+
+{{{bash
+ls file[abc].txt
+}}}
+
+{{{bash
+ls file[0-9].txt
+}}}
+
+{{{bash
+# not numbers from 0 to 99. But characters from 0 to 9 and 9!!!
+ls file[0-99].txt
+}}}
+
+{{{bash
+ls file[0-9a].txt
+}}}
+
+{{{bash
+ls file[a-z9].txt
+}}}
+
+{{{bash
+ls file[123456789abc].txt
+}}}
+
+{{{bash
+# the same
+ls file[1-9a-c].txt
+}}}
+
+{{{bash
+ls | grep 'file[^a-z]*'
+}}}
+
+{{{bash
+ls | grep '^file[^a-z]*' # alphafiles is filtered out.
+}}}
+
+{{{bash
+ls | grep '^file[!a-z]*' # Same as previous but maybe not so confusing.
+}}}
+
+{{{bash
+ls file[!a-z].txt
+}}}
+
+#### Special Characters
+1. `[`
+2. `]`
+3. `^`
+4. `!`
+5. `-`
+
+If you want to match them you can place them at `positions` where they cannot be misinterpreted, `escape` them and/or use `character sets`.
+
+{{{bash
+# Does not work (and screws up the kernel)
+# ls file[a-z!].txt
+}}}
+
+{{{bash
+ls file[a-z\!].txt
+}}}
+
+{{{bash
+ls file[a-z^].txt
+}}}
+
+{{{bash
+ls file[\!].txt # Match only exclamation mark.
+}}}
+
+{{{bash
+ls file[\^].txt # Match only caret.
+}}}
+
+{{{bash
+ls file[-abc].txt # Matches also a hyphen.
+}}}
+
+{{{bash
+ls file[abc-].txt # Matches also a hyphen.
+}}}
+
+{{{bash
+ls file[-].txt # Matches a single hyphen.
+}}}
+
+{{{bash
+ls file-.txt # The same as the previous one.
+}}}
+
+{{{bash
+ls file[[abc].txt # Matches [. Put it as the first character in the character set.
+}}}
+
+{{{bash
+ls file[]abc].txt # Brackets lose their special meaning when they are used first in a character set.
+}}}
+
+{{{bash
+ls 'file*.txt'
+}}}
+
+{{{bash
+ls file[*abc].txt # Character sets give you more flexibility.
+}}}
+
+{{{bash
+ls file[ABC].txt
+}}}
+
+{{{bash
+ls file[A-Z].txt # The output depends on your collate settings.
+}}}
+
+{{{bash
+locale # On my machine it is set to C: LC_COLLATE=C. Which does what you expect.
+}}}
+
+{{{bash
+cd Collate; cat file.txt
+}}}
+
+{{{bash
+sort file.txt # With LC_COLLATE=C you get first numbers, then uppercase letters, then lowercase letters.
+}}}
+
+#### US-UTF8 Collation Sequence
+1. If you define the character set `[a-z]` you define the letters: `aAbB...z` but without `Z`.
+2. If you define the character set `[A-Z]` you define the letters: `AbBcC..zZ` but without `z`.
+
+{{{bash
+LC_COLLATE="en_US.UTF-8" sort file.txt # Uppercase and lowercase letters are intermingled
+}}}
+
+{{{bash
+LC_COLLATE=C sort file.txt # Uppercase and lowercase letters are separate.
+}}}
+
+#### Solutions to Inconsistent Sorting
+1. Set `LC_COLLATE=C in` every Bash script.
+2. Set `globasciiranges` shell option (Bash 4.3 and newer)
+3. $ `bash -O globasciiranges`
+4. Use `POSIX compatible character classes` instead of character sets.
+
+{{{bash
+# On my box with Oh My Bash globasciiranges is set.
+shopt -p globasciiranges
+}}}
+
+#### Using POSIX Compatible Character Classes
+
+{{{bash
+cd ../alphafiles
+}}}
+
+{{{bash
+ls
+}}}
+
+{{{bash
+# Let's use a character set with a character class.
+# Upper case characters.
+ls [[:upper:]] # Does actually not what was expected. Should print: A  B  Ç   Y  Z
+
+}}}
+
+{{{bash
+# Lower case characters.
+ls [[:lower:]] # Does actually not what was expected. Should print: á c x
+}}}
+
+{{{bash
+# Numbers
+ls [[:digit:]]
+}}}
+
+{{{bash
+# Upper and lower case
+ls [[:alpha:]]
+}}}
+
+{{{bash
+# Upper and lower case plus numbers
+ls [[:alnum:]]
+}}}
+
+{{{bash
+# Space, tabs and newlines
+ls [[:space:]]
+}}}
+
+{{{bash
+# Printable characters not including spaces
+ls [[:graph:]]
+}}}
+
+{{{bash
+# Printable characters including spaces
+ls [[:print:]]
+}}}
+
+{{{bash
+# Punctuation
+ls [[:punct:]]
+}}}
+
+{{{bash
+# Non-printable control characters
+ls [[:cntrl:]]
+}}}
+
+{{{bash
+# Hexadecimal characters
+ls [[:xdigit:]]
+}}}
+
+{{{bash
+ls [[:digit][:space:]]
+}}}
+
+{{{bash
+# Character class negation
+ls [![:digit:][:space:]]
+}}}
+
+{{{bash
+cd ..
+}}}
+
+{{{bash
+pwd
+}}}
+
+{{{bash
+ls file[[:alnum:]].txt
+}}}
+
+{{{bash
+ls file[[:alnum:][:punct:]].txt
+}}}
+
+{{{bash
+ls file[![:alnum:][:punct:]].txt
+}}}
+
+{{{bash
+ls file[![:alnum:][:space:]].txt
+}}}
+
+{{{bash
+ls file[![:alnum:]].txt
+}}}
+
+#### Bash Globbing Options
+1. nullglob
+2. failglob
+3. dotglob
+4. globstar
+5. nocasematch
+6. nocaseglob
+7. extglob
+
+To **set** a shell variable use: **shopt -s**<br>
+To **unset** a shell variable use: **shopt -u**<br>
+To **display** the current value use: **shopt -p**<br>
+
+{{{bash
+shopt -p nullglob # nullglob is not set
+}}}
+
+{{{bash
+shopt -u nullglob # If there are no *.bin files in the directory
+# it will be set to '*.bin' and found to 1
+# which in our application case is wrong.
+found=0
+for i in *.bin; do
+    echo $i
+    found=1
+done
+echo $found
+}}}
+
+{{{bash
+shopt -s nullglob # If there are no *.bin files we don't enter the for-loop. This is what we want!
+found=0
+for i in *.bin; do # pattern is set to null. For-loop is not entered.
+    echo $i
+    found=1
+done
+shopt -u nullglob # Immediately deactivate this option! It can break some tools and even shell scripts!
+echo $found
+}}}
+
+{{{bash
+shopt -p failglob
+}}}
+
+{{{bash
+shopt -s failglob # If there are no *.bin files an error is displayed.
+found=0
+for i in *.bin; do # Error is displayed and the code is not executed.
+    echo $i
+    found=1
+done
+shopt -u failglob # Immediately deactivate this option! It can break some tools and even shell scripts!
+echo $found
+}}}
+
+{{{bash
+shopt -p dotglob
+}}}
+
+{{{bash
+shopt -u dotglob
+}}}
+
+{{{bash
+ls *
+}}}
+
+{{{bash
+shopt -s dotglob
+}}}
+
+{{{bash
+ls * # .hiddenfile is displayed
+}}}
+
+{{{bash
+shopt -p globstar
+}}}
+
+{{{bash
+shopt -s globstar
+}}}
+
+{{{bash
+ls ** # recurses into subdirectories
+}}}
+
+{{{bash
+shopt -s globstar
+for i in **; do
+    echo $i
+done
+}}}
+
+{{{bash
+shopt -s globstar
+for i in **/*.txt; do
+    echo $i
+done
+}}}
+
+{{{bash
+cat nocasematch.sh
+}}}
+
+{{{bash
+. ./nocasematch.sh # case insensitive string comparisons because of shopt -s nocasematch
+}}}
+
+{{{bash
+cd upper*
+}}}
+
+{{{bash
+shopt -s nocaseglob
+}}}
+
+{{{bash
+cd upper*
+}}}
+
+{{{bash
+pwd # now it worked
+}}}
+
+### Extended Globs
+
+1. Patterns can be more than one character.
+2. Match mulitple occurrences.
+3. Allow grouping patterns.
+4. Nesting pattern groups.
+5. Logical AND and OR.
+
+You have to turn them on with:
+`shopt -s extglob`
+
+|Pattern|Explanation|Match|Would NOT Match|
+|:--|:--|:--|:--|
+|photo@(.jpg)|`@(match)`: Match only one occurrence|photo.jpg|photo|
+||||photo.jpg.jpg|
+|photo@(.jpg\|.png)|Here we add a logical OR|photo.jpg|photo|
+|||photo.png|photo.gif|
+||||photo.jpg.jpg|
+|photo?(.jpg\|.png)|`?(match)`: Match 0 or 1 occurrence|photo|photo.gif|
+|||photo.jpg|photo.bmp|
+|||photo.png|photo2.jpg|
+||||photo.png.png|
+||||photo.jpg.jpg|
+|photo+.(.jpg\|.png)|`+(match)`: Match 1 or more occurrences|photo.jpg|photo|
+|||photo.png|photo.gif|
+|||photo.jpg.jpg|photo2.jpg|
+|||photo.png.png||
+|photo*(.jpg\|.png)|`*(match)`: Match 0 or more occurrences|photo|photo.gif|
+|||photo.jpg|photo2.jpg|
+|||photo.png||
+|||photo.jpg.jpg||
+|||photo.png.png||
+|photo!(.jpg\|.png)|`!(match)`: Invert a match|photo|photo.jpg|
+|||photo.gif|photo.png|
+|||photo2.jpg|document.txt|
+|||photo.bmp||
+|||photo.txt||
+|||photo.jpg.jpg||
+|||photo.png.png||
+|photo!(?(.jpg\|.png))|`!(?(match))`: Inverted match 0 or 1 occurrence|photo.gif|photo||
+|||photo.bmp|photo.jpg|
+|||photo2.jpg|photo.png|
+|||photo.png.png||
+|||photoe.jpg.jpg||
+|!(+(photo\|file)\*+(.jpg\|.gif))|`Group matches`||||
+||Matches all files that do not have photo or file or don't end with jpg or gif.||||
+
+{{{bash
+cd ../../02/globfiles
+}}}
+
+{{{bash
+shopt -s extglob
+}}}
+
+{{{bash
+ls photo@(.jpg)
+}}}
+
+{{{bash
+ls photo.jpg # trivially the same
+}}}
+
+{{{bash
+ls photo@(.jpg|.png)
+}}}
+
+{{{bash
+ls photo?(.jpg|.png)
+}}}
+
+{{{bash
+ls photo+(.jpg|.png)
+}}}
+
+{{{bash
+ls photo*(.jpg|.png)
+}}}
+
+{{{bash
+ls photo!(.jpg|.png)
+}}}
+
+{{{bash
+ls photo!(?(.jpg|.png)) # The inverse of ls photo(?(.jpg|.png))
+}}}
+
+{{{bash
+ls !(+(photo|file)*+(.jpg|.gif))
+}}}
+
+#### Why You Should Use Extended Globs
+
+1. Make interactive globbing more useful.<br>
+Remove all files that start with IMG or DSC but do NOT end in .CRW or .NEF<br>
+<code>rm @(IMG|DSC)*!(.CRW|.NEF)</code><br>
+This would be difficult to do with the GUI or standard globs.
+
+2. Add more power to if conditional statements.<br>
+<code>
+if [[ $i = Backup*.@(@(tar|arc).gz|tgz) ]]; then
+    echo $i
+fi</code><br>
+Executes much faster than the corresponding RE.
+
+3. Add more power to case statements.<br>
+<code>
+for file in *; do
+    case $file in
+      @(IMG|DSC)*@(@(.CR2|.NEF).xmp|.NEF|.CR2)) (( ALLRAW++ )) ;;&
+      DSC*@(.NEF|.NEF.xmp))                     (( NIKRAW++ )) ;;&
+      DSC*@(.NEF.xmp)                           (( NIKSUP++ )) ;;
+      IMG*@(.CR2|.CR2.xmp)                      (( CANRAW++ )) ;;&
+      IMG*@(.CR2.xmp)                           (( CANSUP++ )) ;;
+      IMG*@(.JPG|.jpg))                         (( CANJPG++ )) ;;
+      *)                                        (( OTHER++  )) ;;
+    esac
+done
+</code>
+<br>
+We cannot use REs in case statements! This can be epic!
+
+4. Add more power to pattern substitution.<br>
+<code>
+file=Archive-2017-06-12.tar.gz
+echo ${file%%@(.tar|.bak)*}
+-> Archive-2017-06-12</code>
+
+5. Speed!<br>
+Extended globs are much faster than REs. So if you can use an extended glob instead of an RE do it!
+
+{{{bash
+shopt -p extglob # On my box extended globs are activated by default. If not add them to your ~/.bashrc file.
+}}}
+
+{{{bash
+cd ..
+pwd
+}}}
+
+{{{bash
+cp -Rf goldenfiles/ testfiles
+}}}
+
+{{{bash
+cd testfiles
+# Now you can play around to your delight!
+}}}
+
+If you can execute the following statements in a real Bash shell.
+
+{{{bash
+# ls
+}}}
+
+{{{bash
+cd 02/testfiles
+}}}
+
+{{{bash
+# ls  @(Archive|Backup)*@(.gz|.xz)
+}}}
+
+{{{bash
+# ls  @(Archive|Backup)-!(2019)*@(.gz|.xz) | sort
+# Records from 2019 will still be shown as the asterisk is greedy and matching everything
+}}}
+
+{{{bash
+# We need something more specific so the asterisk does not match everything.
+# ls  @(Archive|Backup)-!(2019)-[0-9][0-9]-*@(.gz|.xz) | sort
+# You cannot do this with a standard glob!
+}}}
+
+{{{bash
+for i in *; do echo ${i#*.}; done | sort -u # Finding the file extensions using substring removal and unique sort
+}}}
+
+{{{bash
+# ls -1 @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]-@([0-9]|[0-9][0-9])@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz)
+}}}
+
+{{{bash
+# ls -1 !(*@(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]-@([0-9]|[0-9][0-9])@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz)*)
+# These files shouldn't be there.
+}}}
+
+{{{bash
+ls -1 @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz)
+}}}
+
+{{{bash
+for i in @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz); do
+    echo $i
+done
+}}}
+
+{{{bash
+for i in @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz); do
+    echo ${i%%.*}
+done
+}}}
+
+{{{bash
+for i in @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz); do
+    echo ${i%%.*}-1.
+done
+}}}
+
+{{{bash
+for i in @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz); do
+    echo ${i%%.*}-1.${i#*.}
+done
+}}}
+
+{{{bash
+for i in @(Archive|Backup)-[0-9][0-9][0-9][0-9]-[0-9][0-9]@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz); do
+    mv -v $i ${i%%.*}-1.${i#*.}
+done
+}}}
+
+{{{bash
+mkdir compressed
+}}}
+
+{{{bash
+# mv @(Archive|Backup)*@(@(.bak|.tar)?(.bz2|.gz|.xz)|.tgz) compressed
+}}}
+
+{{{bash
+ls -1 compressed | wc -l
+}}}
+
+{{{bash
+cd ..
+}}}
+
+{{{bash
+rm -Rf testfiles
+}}}
+
+{{{bash
+# cp -Rf goldenfiles/ testfiles
+# Now you can play again
+}}}
+
+ ### Extended Globs vs. Regular Expressions
+ #### Extended Globs:
+ 1. match files
+ 2. for loops
+ 3. if conditionals
+ 4. case statements
+ 5. variable pattern matching
+ 
+ #### Regular Expressions:
+ 1. match text
+ 2. grep
+ 3. awk
+ 4. sed
+ 5. if [[ =~ ]]
+
+|Extended Glob|Regular Expression|
+|:--|:--|
+|`@(pattern)`|`(pattern)`|
+|`?(pattern)`|`(pattern)?`|
+|`+(pattern)`|`(pattern)+`|
+|`*(pattern)`|`(pattern)*)`|
+|`!(pattern)`|`(!pattern)`|
+|`*(pattern1\|pattern2)`|`(pattern1\|pattern2)*`|
+|`N/A!!!`|`(pattern){3}`|
+
+#### Brace Expansion vs. Globs
+
+1. Globs expand pathnames
+2. Brace expansion expands braces
+3. Brace expansion is processed first
+4. Globs are processed last
+5. Brace expansion does `NOT` depend on file existence
+6. Brace expansion is a `pure string operation`
+
+{{{bash
+cd ../03
+}}}
+
+{{{bash
+touch file{1,2,4}.txt
+rm file3.txt 
+}}}
+
+{{{bash
+ls
+}}}
+
+{{{bash
+ls file{1..4}.txt
+}}}
+
+{{{bash
+echo file{1..4}.txt
+}}}
+
+{{{bash
+echo {1..10}
+}}}
+
+{{{bash
+echo {a..c}{10..99}
+}}}
+
+{{{bash
+echo {a,b,c}{d,e,f}
+}}}
+
+{{{bash
+echo {1..100..2} # odd numbers
+}}}
+
+{{{bash
+echo {2..100..2} # even numbers
+}}}
+
+{{{bash
+echo {0002..1000..2} # padded numbers
+}}}
+
+{{{bash
+echo {a..z}
+}}}
+
+{{{bash
+echo {a..z..2}
+}}}
+
+{{{bash
+echo {10..0} # count down
+}}}
+
+{{{bash
+echo file{,.bak}
+}}}
+
+{{{bash
+echo /this/is/a/long/path/file{,.bak} # gives you source and destination for cp or mv
+}}}
+
+{{{bash
+mkdir bracefiles
+}}}
+
+{{{bash
+cd bracefiles
+}}}
+
+{{{bash
+touch Backup-201{1..9}-{0{0..9},1{1,2}}-{1..30}.{tar,bak}.{gz,xz,bz2}
+}}}
+
+{{{bash
+ls -1 | wc -l
+}}}
+
+{{{bash
+# \cp means we use the unaliased version of cp
+# On my box cp is aliased to 'cp -iv'
+for i in Backup*{0..30..7}.tar.bz2; do
+    \cp -vf $i{,.bak}
+done    
+}}}
+
+{{{bash
+ls *.bak
+}}}
+
+{{{bash
+mkdir -p 20{20..25}/{01..12}
+}}}
+
+{{{bash
+tree -d
+}}}
+
+{{{bash
+mkdir -p {sales,production,development,engineering}/{manager,employee{01..10}}
+}}}
+
+{{{bash
+tree -d
+}}}
+
+{{{bash
+echo {w,t,}h{e{n{,ce{,forth}},re{,in,fore,with{,al}}},ither,at}
+}}}
+
+### Creating brace expressions AUTOMATICALLY!!!
+Press `ESC`, then `CTRL`, then open brace `{`<br>
+This is the output:<br>
+`{bracefiles,file{1.txt,2.txt,3.txt,4.txt,5.txt},permutations}`
+
+# Regular Expressions
+
+1. POSIX Standards
+    1. BRE: Basic Regular Expressions
+        1. BREs came first
+    2. ERE: Extended Regular Expressions
+        1. EREs were extended
+        2. EREs and BREs became similar over the years
+        3. However, EREs are cleaner and simpler to read
+2. PCRE: Perl Compatible Regular Expressions
+    1. Ungreedy matches
+    2. Multiline matches
+    3. JIT compiler support
+    4. Subroutines
+    5. Named patterns
+    6. Lookahead assertions
+    7. Lookbehind assertions
+    8. Recursive patterns
+3. https://en.wikipedia.org/wiki/Comparison_of_regular-expression_engines    
+
+### Typical Shell Tools That Support Regexes
+
+1. grep
+2. awk
+3. sed
+4. bash
+
+Support for regexes varies: http://www.regular-expressions.info/refcharacters.html
+
+### Regular Expression Support
+
+1. http://www.regular-expressions.info/refflavors.html
+2. Support differs in each regex engine
+3. Implementations may differ of the same engine
+4. Be ready to experiment
+
+### ERE Syntax
+
+|Special Character|Function
+|:--|:--|
+|.|matches one character|
+|[]|character sets|
+|\\|escape single characters|
+|()|pattern grouping|
+|\||alternation|
+|\*+{}|repetition operators|
+|**^**abc|leading anchor|
+|abc**$**|trailing anchor|
+|[**^**abc]|negates pattern|
+|**[**{**]**|escape special characters|
+|**\\**{|escape special characters|
+
+### BRE Syntax
+
+1. With BREs you have to escape RE characters to make them special!
+2. Which results in a backslash binge!
+3. BREs cannot do alternation
+4. With GNU tools, both BREs and EREs are equal!
+5. Use EREs whenever possible.
+
+### Regex Support in GNU Tools
+
+1. GNU Tools use BREs by default!
+
+|Tool|Regex Type|Comment|
+|:--|:--|:--|
+|grep, grep -G|BRE||
+|grep **-E**|ERE|egrep is the same, but regarded as obsolete and still around|
+|sed|BRE|
+|sed **-E**|ERE|
+|awk|ERE|awk only uses EREs|
+|Bash [[ =~ ]]|ERE||
+
+### Matching Single Characters
+|Pattern|Match|Comment|
+|:--|:--|:--|
+|.|one character|
+|[abc]|one character in list|
+|[^abc]|one character not in list|
+|[0-9]|one number in range|
+|[:alpha:]|one character in class|
+|\\b|empty string at either word edge|\\brat\\b not same as [[:space:]rat[:space:]]. The latter includes the spaces in the match, the first doesn't.|
+|\\B|empty string not at word edge|\\Brat\\B matches "c**rat**e" but not "furry rat".|
+|\\<|empty string at beginning of word|
+|\\>|empty string at end of word|
+|\\w|match whole word|\\wrat would match "**crate**" and "**crateandbarrel**" and matches the whole words!|
+|\\W|match a non-word|
+|\\s|match a whitespace|same as [[:space:]]|
+|\\S|match a non-whitespace|
+|^|anchor to the beginning of the line|
+|$|anchor to the end of the line|
+
+Matching Occurrences
+
+|Pattern|Match|Comment|
+|:--|:--|:--|
+|.|one character|
+|.?|zero or one occurrence|
+|.+|one or more occurrences|
+|.\*|zero or more occurrences|
+|.{3}|three occurrences|
+|.{3,}|three or more occurrences|
+|.{,3}|zero to three occurrences|
+|.{1,3}|one to three occurrences|
+
+### Alternation and Grouping
+
+1. Alternation allows matching one or another
+    1. **dog|cat** matches dog, cat, dogdog, catcat due to concatenation and greedy matches!
+    2. **^(dog|cat)?$** matches dog, cat but not dogdog nor catcat
+    3. **^(dog|cat)+\$** matches dog, cat, dogdog, catcat
+    4. Numbers 1-99:
+        1. Numbers 0-9: [0-9]
+        2. Numbers 10-99: [1-9][0-9]
+        3. Numbers 1-99: [0-9]|[1-9][0-9]
+    5. Numbers 0-99: [0-9][0-9]?
+    6. Numbers 0-150:
+        1. Numbers 0-99: [0-9][0-9]?
+        2. Numbers 100-149: 1[0-4][0-9]
+        3. Number 150: 150
+        4. Numbers 0-150: ^(150|1[0-4][0-9]|[0-9][0-9]?)\$
+            1. We go from most specific to least specific!
+2. Grouping treats more than one pattern as one match
+
+### Backreferences
+
+1. Maximum of nine backreferences from \\1 to \\9.
+2. (ss).\*\\1.\*\\1 would match cla**sslessness**, posse**ssiveness**, stre**sslessness**
+3. Five-letter palindromes: ^(.)(.).\\2\\1\$ would match radar, civil, kayak, level
+
+### Pattern Matching in Bash
+
+1. Extended regexes in [[ =~ ]]
+2. Extended globs use = or == which are the same. Use whichever you prefer.
+
+{{{bash
+cd 04
+}}}
+
+{{{bash
+# Pattern Matching with Globs
+cat globfiles.sh
+}}}
+
+{{{bash
+# Pattern matching with Regular Expresssions
+# NOTE: You cannot place quotes around the REs: [[ $FILE =~ "^Backup.*tar.gz$" ]] does not work!!!
+cat regexfiles.sh
+}}}
+
+{{{bash
+# Globs are much faster.
+time ./globfiles.sh > /dev/null
+}}}
+
+{{{bash
+# Regexes are easier to create and read and more powerful.
+time ./regexfiles.sh > /dev/null
+}}}
+
+### Recalling Patterns in Bash
+
+1. Backreferences
+2. BASH_REMATCH (**REM**atch = **R**egular **E**xpression **M**atch)
+    - Places matched text into array
+    - Similar to backreferences, but unlimited in number
+    - Bash rematches can't be replayed like backreferences
+
+{{{bash
+# Return code = 0
+[[ abcdef =~ b.d ]]
+}}}
+
+{{{bash
+declare -p BASH_REMATCH
+}}}
+
+{{{bash
+# Return code = 1
+[[ xyz =~ b.d ]]
+}}}
+
+{{{bash
+declare -p BASH_REMATCH
+}}}
+
+{{{bash
+ [[ "abcdef" =~ (b)(.)(d)e ]]
+}}}
+
+{{{bash
+# BASH_REMATCH[0] contains the entire matching pattern
+declare -p BASH_REMATCH
+}}}
+
+{{{bash
+echo -n ${BASH_REMATCH[0]}
+}}}
+
+{{{bash
+KEEP_BASH_REMATCH=("${BASH_REMATCH[@]}")
+}}}
+
+{{{bash
+echo ${KEEP_BASH_REMATCH[@]}
+}}}
+
+{{{bash
+declare -p KEEP_BASH_REMATCH
+}}}
+
+{{{bash
+cat sales.csv
+}}}
+
+{{{bash
+# Finding Visa card numbers & print them
+# Adding hyphens every four digits for easier reading
+for line in $(cat sales.csv); do
+    if [[ $line =~ .*[Vv]isa.*  ]]; then
+        if [[ $line =~ [0-9]{16} ]]; then
+            echo ${BASH_REMATCH[0]} | sed -E 's/([0-9]{4})([0-9]{4})([0-9]{4})([0-9]{4})/\1-\2-\3-\4/'
+        fi
+        
+    fi
+done
+}}}
+
+### Grep Options
+
+|Option|Function|Comments|
+|:--|:--|:--|
+|grep -E or egrep|Process as ERE|You can also use egrep although it is deprecated but kept around for historical reason.
+|||GNU grep supports backreferences in EREs!|
+|grep -G|Process as BRE|
+|grep -P|Process as PCRE|There is also the **pcregrep** utility.|
+|grep -e "pattern"|Use <pattern> as the pattern|Used when facing command line parsing problems when pattern starts with a hyphen.|
+|grep -f "file"|Get patterns from a file|One pattern per line. All of them will be applied.|
+|grep -w|Match only whole words|Similar to patterns with \\b.|
+|grep -x|Match only whole lines|
+|grep -o|Only return the matched text not the whole line|
+|grep -p|Do not return the match, only the return code| Useful in conditionals.|
+|grep -z|Replace newline by NULL|Useful in multline matching using PCREs.|
+
+{{{bash
+cd ../05
+}}}
+
+{{{bash
+ls
+}}}
+
+{{{bash
+head -n 20 words.txt
+}}}
+
+{{{bash
+tail -n 20 words.txt
+}}}
+
+{{{bash
+wc -l words.txt
+}}}
+
+{{{bash
+# Search for words with three double s'es.
+grep -E '(ss).*\1.*\1' words.txt
+}}}
+
+{{{bash
+# GNU tools rely on greedy matching!
+grep -E 'a.*a' words.txt | wc -l
+}}}
+
+{{{bash
+grep -E 'a.*a' words.txt | tail
+}}}
+
+{{{bash
+# If we want only words that start and end with an a we can use the -x option.
+grep -E -x 'a.*a' words.txt | head
+}}}
+
+{{{bash
+# Use anchors to achieve the same. (But more portable.)
+grep -E '^a.*a$' words.txt | head
+}}}
+
+{{{bash
+grep -E -o 'a.*a' words.txt | head
+}}}
+
+{{{bash
+# Relying only on the return value of pattern matching
+# If your data to match is already in your script use Bash pattern matching.
+# Grep pattern matching was the only option before there was support for regexes in Bash.
+if grep -E -q '^schmid.*' /etc/passwd; then
+    echo 'Schmid somehow exists as a user account.'
+fi
+}}}
+
+{{{bash
+# Multiline matches
+cat multiline.txt
+}}}
+
+{{{bash
+ grep -o -E '{([^}]*)}' multiline.txt
+}}}
+
+{{{bash
+# For mulitline matches we need PCREs
+# -z replaces newline by NULL
+grep -o -z -P '{([^}]*)}' multiline.txt
+}}}
+
+{{{bash
+# the z option is necessary in multiline pattern matching
+grep -o -P '{([^}]*)}' multiline.txt
+}}}
+
+{{{bash
+cat photofiles.txt
+}}}
+
+{{{bash
+# Grep is greedy
+grep -o '^(https.*.jpg' photofiles.txt
+}}}
+
+{{{bash
+# Using PCREs.
+# The question mark introduces a non-greedy match.
+grep -o -P '(https).*?.jpg' photofiles.txt
+}}}
+
+### Performance Optimizing Grep
+
+1. Change the locale to C
+2. For non C locales, avoid [a-z] and [[=a=]]
+3. Avoid backreferences
+4. Don't use grep -i
+5. Simplify searches.
+    - Multiple simple piped searches can be faster than one complex search
+    - grep uses **Boyer-Moore** fast string search algorithm for single fixed pattern
+    - grep uses the **Aho–Corasick** algorithm for muliple fixed patterns
+
+{{{bash
+# Finding telephone numbers
+grep -E -o '([+][0-9][0-9]?-)?[(]?[0-9]{3}[)]?-[0-9]{3}-[0-9]{4}' contacts.csv
+# Handles telephone numbers of the forms:
+# 908-870-5536
+# (510)-503-7169
+# +1-510-993-3758
+# +1-(510)-503-7169
+}}}
+
+### Sed is a stream editor
+- http://sed.sourceforge.net/
+    - sed one liners: http://sed.sourceforge.net/sed1line.txt
+- Which means that it handles text on the fly!
+- If you know Vim's Excommand mode you know most of sed!
+
+#### sed Modes
+- Print
+- Delete
+- Substitute
+
+#### Printing with BRE
+
+- -n prints out only matched lines
+- sed -n '/BRE regex/p'
+- sed -n -E '/ERE regex/p'
+
+#### Getting Data into sed
+
+1. Piping: <code>cat /etc/password | sed -n '/BRE regex/p'</code>
+2. Input from a file: <code>sed -n 'BRE regex/p' /etc/passwd</code>
+
+#### Output to a File
+
+<code>sed -n '/BRE regex/p' /etc/passwd > newpasswd</code>
+
+#### In-Place Editing
+
+<code>sed -n -i '/BRE regex/p' /etc/passwd</code>
+
+#### Deleting Text
+
+- <code>sed '/BRE regex/d'</code>
+- <code>sed -E '/ERE regex/d'</code>
+
+#### Substituting Text
+
+- <code>sed 's/BRE regex/BRE regex/g'</code>
+- <code>sed -E 's/ERE regex/ERE regex/g'</code>
+
+#### Addresses and Address Ranges
+
+- Line to match
+- Range of lines to match
+- Negation
+- Every nth line
+- Examples:
+    - Print lines 5 to 10: <code>sed '5,10p'</code>
+    - Delete lines 5 to 10: <code>sed '5,10d'</code>
+    - Substitute on lines 5 to 10: <code>sed '5,10s/BRE regex/BRE regex/g'</code>
+
+#### sed Substitution Flags
+
+|Option|Function|
+|:--|:--|
+|g|replace every instance on the line - globally to the line|
+|NUMBER|replace the nth match|
+|p|after the substitution print|
+|w|after the substitution print to a file|
+|i|case insensitive|
+
+#### Alternate String Separator
+
+- Use any different character that does not have special meaning in a regular expression.
+    - <code>sed 's/BRE regex/BRE regex/g'</code>
+    - <code>sed 's/\\/path\\/to\\/file.txt/\\/path\\/to\\/file.jpg/g' # Uff!!!</code>
+    - <code>sed 's:/path/to/file.txt:/path/to/file.jpg:g' # Much easier!</code>
+
+{{{bash
+cd 06
+}}}
+
+{{{bash
+cat passwd
+}}}
+
+{{{bash
+sed -n '/root/p' passwd
+}}}
+
+{{{bash
+sed -n '/^root/p' passwd
+}}}
+
+{{{bash
+sed -n 's/^root/toor/p' passwd
+}}}
+
+{{{bash
+sed -n 's/^root/toor/p' passwd # -n and /p are a good combination!
+}}}
+
+{{{bash
+sed 's/^root/toor/' passwd
+}}}
+
+{{{bash
+# replace UIDs < 1000 with uid
+sed -E 's/:([0-9][0-9]{0,2}):/:uid:/' passwd
+}}}
+
+{{{bash
+# Remove UIDs < 1000
+sed -E 's/:([0-9][0-9]{0,2})://' passwd
+}}}
+
+{{{bash
+cat phonenumbers.txt
+}}}
+
+{{{bash
+# Put parens around whole match (&)
+sed -E 's/[0-9]{3}/(&)/' phonenumbers.txt
+}}}
+
+{{{bash
+# Using backreferences
+sed -E 's/([0-9]{3})([0-9]{3})([0-9]{4})/(\1)\2-\3/' phonenumbers.txt
+}}}
+
+{{{bash
+cat IPaddresses.csv
+}}}
+
+{{{bash
+cd 06
+}}}
+
+{{{bash
+# Finding IP addresses
+sed -E -n '/((1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\.){3}(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])/p' IPaddresses.csv | tail
+}}}
+
+{{{bash
+sed -E -n '/((1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\.){3}(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])/p' IPaddresses.csv | tail | sed 's/,.*//g'
+}}}
+
+{{{bash
+# Using grep with EXACTLY the same regex!
+grep -E -o '((1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\.){3}(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])' IPaddresses.csv | tail
+}}}
+
+{{{bash
+# Using Bash with EXACTLY the same regex!
+
+function findIPs {
+for i in $(cat IPaddresses.csv); do
+    if [[ $i =~  ((1?[0-9][0-9]?|2[0-4][0-9]|25[0-5])\.){3}(1?[0-9][0-9]?|2[0-4][0-9]|25[0-5]) ]]; then
+        echo ${BASH_REMATCH[0]}
+    fi
+done
+}
+
+findIPs | tail
+}}}
+
+# Bash Hacks
+- __[Install Oh My Bash](https://ohmybash.nntoan.com/)__
+- Set editing mode to Emacs or Vi in ~/.bashrc:
+    - set -o emacs (default)
+    - set -o vi
+
+{{{bash
+# My shell uses vi mode
+set | grep SHELLOPT
+}}}
+
+{{{bash
+# list keybindings
+bind -P
+}}}
+
+### Manage Background Jobs using &, fg, bg, disown
+
+{{{bash
+# Executing a background job
+find / -ctime -1 > /tmp/changed-file-list.txt &
+}}}
+
+{{{bash
+# List all jobs. Execute this command in a real shell!
+jobs
+}}}
+
+{{{bash
+wc -l /tmp/changed-file-list.txt
+}}}
+
+{{{bash
+# Suspend current job with CTRL-Z and put it in the background with 'bg'
+# Move a job in the foreground with 'fg'
+# Detach job from shell with 'disown'. Disown job #3:
+# disown 3
+# Immediately detach it when putting it in the background:
+# curl -s http://192.168.0.47:22000/play/sundtek.m3u | grep 22000 | dmenu -i -l 10 | xargs -r mpv & disown
+}}}
+
+{{{bash
+alias
+}}}
+
+{{{bash
+show_options
+}}}
+
+{{{bash
+alias imbeggingyou='sudo'
+}}}
+
+{{{bash
+xbps-install foo
+}}}
+
+{{{bash
+imbeggingyou xbps-install foo
+}}}
+
+{{{bash
+alias cp
+}}}
+
+{{{bash
+# Backslash alias to access original command
+\cp -r /tmp/.ICE-unix /tmp/.ICE-unix.foo
+}}}
+
+{{{bash
+unalias imbeggingyou
+}}}
+
+{{{bash
+imbeggingyou xbps-install foo
+}}}
+
+### Bash Startup Files
+- In this order for **interactive login shells**:
+    - <code>/etc/profile</code>
+    - <code>~/.bash_profile</code>
+    - <code>~/.bash_login</code>
+    - <code>~/.profile</code>
+- <code>~.bashrc</code> is typically called from <code>.bash_profile</code>
+- In this order for **interactive non-login shells**:
+    - <code>~/.bashrc</code>
+
+### Three Types of Bash Parameters
+
+1. Variables
+    - Created by the user
+2. Special Parameters
+    - Predefined by Bash and read-only
+3. Positional Parameters
+    - Arguments given to shell scripts
+    - <code>$1 to $9, ${10}, ${11}, ...</code>
+
+### Variable Basics
+
+- No Space before or after the equal sign:
+    - <code>USERNAME=schmidh</code>
+    - If you used <code>USERNAME = schmidh</code> the shell would try to execute the command <code>USERNAME</code>!
+    - If you used <code>USERNAME= schmidh</code> the shell would assign an empty value to <code>USERNAME</code> and would try to execute the command <code>schmidh</code>!
+
+{{{bash
+USERNAME=schmidh
+}}}
+
+{{{bash
+echo -n $USERNAME
+}}}
+
+{{{bash
+echo -n ${USERNAME}
+}}}
+
+{{{bash
+echo -n $USERNAMEhome
+}}}
+
+{{{bash
+# When concattenating values use braces
+echo -n ${USERNAME}home
+}}}
+
+{{{bash
+# Variables are case-sensitive
+echo -n $username
+}}}
+
+{{{bash
+USERNAME = schmidh
+}}}
+
+{{{bash
+USERNAME= schmidh
+}}}
+
+{{{bash
+USERNAME =schmidh
+}}}
+
+### Quoting vs. Not-Quoting (<code>"$VAR" vs $VAR</code>)
+
+1. If you quote it is considered one word.
+2. if you don't quote it will be split into multiple words.
+
+{{{bash
+states="CA NY UT TX"
+}}}
+
+{{{bash
+# no quotes around $states
+for i in $states; do
+    echo $i
+done
+}}}
+
+{{{bash
+# With quotes it is regarded as one word
+for i in "$states"; do
+    echo $i
+done
+}}}
+
+### Shell Script Arguments
+
+1. Special Parameters
+    - Name of the script: `$0`
+    - All parameters: `$*`
+    - All parameters: `$@`
+    - Total number of parameters: `$#`
+2. Positional Parameters
+    - Arguments given to shell scripts
+        - <code>$1 to $9, ${10}, ${11}, ...</code>
+
+### Difference between `$*` and `$@`
+
+They behave exactly the same except when you double quote them. When you double quote `"$*"`, it is converted to `"${1}x${2}x${3}x..."`. In this, x is the first character of the IFS variable which can be changed. `$@` always uses a space.
+
+**IFS** = **Internal Field Separator** - Default value is `<space><tab><newline>`
+
+### Getting Range of Parameters
+
+`${@:$start:$count}`
+
+`$count` is optional. When you don't provide `$count`, bash extracts all the remaining arguments from `$start`.
+
+### Shift Command
+
+`shift [n]`
+
+The Shift command moves the arguments (positional parameters) to the left by `n` positions. If you don't specify `n`, the arguments will be moved by 1.
+
+### Bash Special Parameters
+
+|Special Parameter|Description|
+|:--|:--|
+|`$*`|Contains all the positional parameters.|
+|`$@`|Same as above. Contains all the positional parameters.|
+|`$#`|Total number of positional parameters. i.e total number of arguments passed to the shell script.|
+|`$$`|Contains the PID of the shell.|
+|`$!`|Contains the PID of the most recently executed background process.|
+|`$?`|Contains the exit status of the most recently executed command.|
+|`$-`|Contains all the options set using the bash set builtin command.|
+|`$_`|Gives the last argument to the previous command. At the shell startup, it gives the absolute filename of the shell script being executed.|
+
+{{{bash
+# Print the shell's PID
+echo $$
+}}}
+
+{{{bash
+# Use $$ to Create Temporary Files and Directories
+touch /tmp/temp$$.log
+}}}
+
+{{{bash
+ls /tmp/temp*
+}}}
+
+{{{bash
+# Create temporary directory
+mkdir /tmp/temp.$$
+}}}
+
+{{{bash
+# Cleanup
+rm /tmp/temp$$.log
+rm -rf /tmp/temp.$$
+}}}
+
+{{{bash
+ls /tmp/temp*
+}}}
+
+{{{bash
+echo $_
+}}}
+
+### Quotes (Partial Quoting/Easy Quoting)
+
+{{{bash
+# Not quoting
+# Multiple spaces betweenarguments are treated as just one single space!
+echo Hello World!
+echo Hello     World!
+}}}
+
+{{{bash
+# Preserving multiple spaces
+echo "Hello    World!"
+echo 'Hello    World!'
+}}}
+
+{{{bash
+# Double quotes allow variable substitution.
+username="Hans Schmid"
+echo -n "I am $username!"
+}}}
+
+{{{bash
+username='Hans Schmid'
+echo -n "I am $username!"
+}}}
+
+{{{bash
+username="Hans Schmid"
+echo -n 'I am $username!'
+}}}
+
+{{{bash
+# Double Quotes Inside Double Quotes. (Execute in a real shell.)
+# echo "Hello \"World!\""
+}}}
+
+{{{bash
+echo 'this has "double quotes" in it'
+}}}
+
+{{{bash
+echo This will not expand \$dollar.
+echo "This will not expand \$dollar."
+echo 'This will not expand $dollar.'
+}}}
+
+### Variable Declaration using Declare
+
+- Bash lets you declare integer, read only, array, associative array, and export type variables.
+
+{{{bash
+total=3
+let total=total+2
+echo $total
+total="Some string value"
+echo $total
+}}}
+
+{{{bash
+# Declaring a variable as integer doesn't allow
+# to assign other type's values.
+declare -i total
+total=3
+let total=total+2
+echo $total
+total="Some string value"
+echo $total
+}}}
+
+{{{bash
+# You can't reassign a read-only value
+declare -r iamreadonly='I am read-only'
+iamreadonly='Believe me - I am read-only!'
+}}}
+
+{{{bash
+# To export a variable to a subshell or child process, use declare -x.
+# Note: You can also use the export command for this.
+declare -x global=world
+
+# **Note**: This is a one way process, i.e the parent shell can send the value to the
+# child process, but any changes made to it in the child will not be sent back to the
+# parent. The child process has its own copy of the variable.
+}}}
+
+{{{bash
+# Bash supports arithmetic expressions using the let command in scripts.
+# Note: when using let the variable on the right side of the = doesn't
+# really need to have a $ in front of it.
+total=3
+let total=total+7
+let total=$total+4
+echo $total
+}}}
+
+{{{bash
+# ((expression))
+# Both of the following examples work exactly the same.
+let total=total+5
+((total=total+9))
+echo $total
+}}}
+
+{{{bash
+# However, within the (( )) you can have spaces.
+# Improved readability!
+(( total = total + 7 ))
+echo $total
+}}}
+
+{{{bash
+# (( )) allows you to use pre- and post- increment/decrement.
+(( total = 0 ))
+(( total = total + 3 ))
+(( total++ ))
+(( total-- ))
+(( ++total ))
+echo $total
+}}}
+
+### Let or (( )) or expr -- which one to use?
+
+- In general, use either let or (( )).
+- (( )) is highly preferred due to its readability.
+- Avoid the expr command because it is really calling a unix command to evaluate the arithmetic expression. That means it will unnecessarily spawn a new process.
+
+{{{bash
+# All three achieve the same.
+let total=total+2
+((total=total+2))
+total=`expr $total + 2`
+echo $total
+}}}
+
+{{{bash
+type -p expr
+}}}
+
+### Mathematical Operators
+
+- Bash does not understand floating point arithmetic. It treats numbers containing a decimal point as strings. This restriction applies even if you use let, (( )), or expr.
+- Operators and their precedence:
+
+|Operator|Description|
+|:--|:--|
+|`var++`, `var--`|Post auto increment and auto decrement|
+|`++var`, `--var`|Pre auto increment and auto decrement|
+|`-`, `+`|Unary minus and plus|
+|`!`, `~`|Logical and bitwise negation|
+|`**`|Exponentiation|
+|`*`, `/`, `%`|Multiply, divide, and modulo operator|
+|`+`, `-`|Add and subtract|
+|`<<`, `>>`|Bit-wise left and right shift|
+|`<=`, `>=`, `<`, `>`|Comparisons|
+|`==`, `!=`|Equal-to and not-equal-to|
+|`&` `^` `|`|Operators in the same order mentioned here. AND, XOR, OR|
+|`&&`|Logical AND|
+|`||`|Logical OR|
+|`expr ? expr : expr`|Ternary operator|
+|`=`, `*=`, `/=`, `%=`, `+=`, `-=`, `<<=`, `>>=`, `&=`, `^=`,`\|=`|Assignments|
+
+# Bash Conditional Commands and Loops
+
+## Number Comparison
+
+|Operator|Description|
+|:--|:--|
+|-eq|Equal to|
+|-ne|Not Equal to|
+|-gt|Greater than|
+|-ge|Greater than or equal to|
+|-lt|Less than|
+|-le|Less than or equal to|
+
+{{{bash
+total=100
+if [ $total -eq 100 ]; then
+    echo "Equal"
+fi
+}}}
+
+## String Comparison
+
+|Operator|Description|
+|:--|:--|
+|=|Equal to|
+|==|Equal to|
+|!=|Not Equal to|
+|<|Less than|
+|>|Greater than|
+|-z|Zero byte? Is the given string empty?|
+|-n|Not empty? Is the given string not empty?|
+
+Note: A single equal sign (`=`), is the same as a double equal sign (`==`). Both do string comparison inside the `if [...]; test` construct. But, to avoid any confusion, **use `==` for comparison and `=` for assignment**.
+
+{{{bash
+state="California"
+[ "$state" == "California" ] && echo "State is California!"
+[ "$state" \< "Indiana" ] && echo "California comes before Indiana!" # escape <, >
+}}}
+
+{{{bash
+# city was never defined, actually. Same as city=''
+[ -z "$city" ] && echo "-z: city is null"
+}}}
+
+{{{bash
+[ ! -n "$city" ] && echo "-n: city is empty"
+}}}
+
+{{{bash
+city="Los Angeles"
+[ ! -z "$city" ] && echo "! -z: city is not null"
+}}}
+
+{{{bash
+# When you are referencing a variable, you should always double quote it!!!
+city='Vegas'                                 # this is not a reference, we can use literal
+[ ! -z $city ]   && echo "1. City is not null"
+city="Las Vegas"
+[ ! -z $city ]   && echo "2. City is not null" # will cause an error
+city="Las Vegas"
+[ ! -z "$city" ] && echo "3. City is not null" # use double quotes
+}}}
+
+## The `if` Command
+
+{{{bash
+type -t test
+type -t [
+}}}
+
+{{{bash
+# `test` and `[` are the same.
+total=100
+if test $total -eq 100; then
+    echo "Equal"
+fi
+
+if [ $total -eq 100 ]; then
+    echo "Equal"
+fi
+}}}
+
+{{{bash
+# `if`, `elif`, `else`, `fi`
+if [ $total -eq 100 ]; then
+    echo "total is equal to 100"
+elif [ $total -lt 100 ]; then
+    echo "total is less than 100"
+else
+    echo "total is greater than 100"
+fi
+}}}
+
+### Arithmetic Expressions in an `if` Statement
+
+Inside an `if` statement, when an arithmetic expression's result is `0`, it is considered false, and when an arithmetic expression's result is anything except `0`, it is considered true.
+
+{{{bash
+total=0
+
+if (( total=total + 0 )); then
+    echo "I'm a zero!"
+else
+    echo "OOPS! I'm not a zero!"
+fi
+}}}
+
+### File Test Operators in `If` Condition
+
+|File Test Operator|Description|
+|:--|:--|
+|-e|file exists|
+|-f|regular file|
+|-d|directory|
+|-b|block device|
+|-c|character device|
+|-s|file is not empty|
+|-p|pipe|
+|-S|socket|
+|-h|symbolic link|
+|-t|checks whether the given FD is opened in a terminal|
+|-r|file has read permission|
+|-w|file has write permission|
+|-x|file has execute permission|
+|-u|suid set on the file|
+|-g|sgid set on the file|
+|-k|sticky bit set on the file|
+|-O|you own the file|
+|-G|file group id and my group id are the same|
+|-N|Did the file got modified since last read?|
+|file1 -nt file2|file1 is newer than file2|
+|file1 -ot file2|file1 is older than file2|
+|file1 -ef file2|Both file1 and file2 are hard linked to the same file|
+
+Note: You can reverse the meaning of any of the above conditions by adding a `!` in front of them.
+
+{{{bash
+[ -e /etc/ ] && echo "/etc directory exists"
+[ -e /etc/passwd ] && echo "/etc/passwd regular file exists"
+[ -e /dev/sda1 ] && echo "/dev/sda1 block device file exists"
+[ -e /dev/tty1 ] && echo "/dev/tty1 character device file exists"
+[ -e /etc/rc.local ] && echo "/etc/rc.local symbolic link file exists"
+}}}
+
+{{{bash
+[ -d /etc/ ] && echo "/etc exists and it is a directory"
+[ -f /etc/passwd ] && echo "/etc/passwd exists and it is a regular file"
+[ -b /dev/sda1 ] && echo "/dev/sda1 exists and it is a block device"
+[ -c /dev/tty1 ] && echo "/dev/tty1 exists and it is a character device"
+[ ! -h /etc/rc.local ] && echo "/etc/rc.local exists but is not asymbolic link"
+}}}
+
+{{{bash
+echo "1. type -p"
+type -p ls # ls has been aliased; type -p does not work
+echo "2. which is a bitch"
+which ls
+}}}
+
+{{{bash
+filename='/usr/bin/ls'
+[ -r $filename ] && echo "You have read permission on $filename";
+[ -w $filename ] && echo "You have write permission on $filename";
+[ -x $filename ] && echo "You have execute permission on $filename";
+}}}
+
+{{{bash
+filename='/tmp/file1'
+[ -s /etc/passwd ] && echo "/etc/passwd is not empty"
+touch "$filename"
+[ ! -s /tmp/file1 ] && echo "/tmp/file1 is empty!"
+}}}
+
+### `AND`, `OR`, `Not` Inside `test` or `[]` Statements Using `-a`, `-o`, `!`
+
+{{{bash
+# and with -a
+state="CA"
+capital="Sacramento"
+[ $state == "CA" -a "$capital" == "Sacramento" ] && echo "California's capital is Sacramento!"
+}}}
+
+{{{bash
+# or with -o
+fruit="Orange"
+[ "$fruit" == "Apple" -o "$fruit" == "Orange" ] && echo "$fruit is a fruit."
+}}}
+
+{{{bash
+# negate with !
+fruit="Egg"
+[ ! "$fruit" == "Apple" -a ! "$fruit" == "Orange" ] && echo "$fruit is not a fruit."
+# This does not work; needs [[ ]] (see belowe) 
+# [ ! ( "$fruit" == "Apple" -o "$fruit" == "Orange" ) ] && echo "$fruit is not a fruit."
+}}}
+
+###  `&&` - Combine Multiple Commands with AND
+
+1. command1 `&&` command2 `&&` command3 `&&` ...
+2. If command1 `succeeds` (with a `return status of 0`), command2 will be executed. And so on...
+
+### `||` - Combine Multiple Commands with OR
+
+1. command1 `||` command2 `||` command3 `||` ...
+2. If command1 `fails` (`return status of non zero`), command2 will be executed. And so on...
+
+###  `[[ ]]` - Extended Test Command
+
+`[[ ]]` is the extended test command, an advanced variation of the `[ ]` command that does everything `[ ]` does, plus the following:
+- Pattern matching in the string comparison, when you use `=`, `==`, or `!=`
+- `=~` inside extended test command
+- `&&` and `||` inside the extended test command
+- `<` and `>` for comparison inside the extended test command
+- enclosing an expression in `( )` to change its evaluation precedence
+- `Tilde expansion`, `arithmetic expansion`, and `parameter expansion`
+- `Command substitution` and `process substitution`
+
+{{{bash
+name="bond"
+# 1. You can use pattern matching in [[ ]]
+[ $name = bon* ] && echo "1.1. Good Morning, Mr. Bond"      # does not work with basic test
+[[ $name = bon* ]] && echo "1.2. Good Morning, Mr. Bond"
+
+# 2. You can use || && inside [[ ]]
+[[ $name = super || $name = bon* ]] && echo "2. Good Morning, Mr. Hero"
+
+# 3. You can use =~ for regular expression inside [[ ]]
+[[ $name =~ ^b ]] && echo "3. Mr. $name, your name starts with "b""
+
+i=1
+for item in /etc/*.conf; do
+    [[ $item =~ ^/etc/s.* ]] && echo "Config file $((i++)): $item"
+done
+
+i=1
+for item in ~/Pictures/*; do
+    [[ $item = *.jpg ]] && echo "Image $((i++)): $item"
+done
+}}}
+
+### Input and Output Redirection
+
+The following three file descriptors are opened by bash, by default.
+1. `stdin`  - file descriptor (FD) = `0`
+2. `stdout` - file descriptor (FD) = `1`
+3. `stderr` - file descriptor (FD) = `2`
+
+{{{bash
+# Input Redirection Using <
+cat < /etc/passwd
+}}}
+
+{{{bash
+# Output Redirection Using >
+ls -l > /tmp/output.txt
+cat /tmp/output.txt
+}}}
+
+{{{bash
+# Append Using >>
+ls -l ~/Temp/ >> /tmp/output.txt
+cat /tmp/output.txt
+}}}
+
+#### If you want both output and error to be redirected to the same output file, use `&>` /  `>&` or `&>>` / `>>&`!
+
+1. `&>` and `>&` are the same.
+2. `&>>` and `>>&` are the same.
+3. `2>&1` means file descriptor 2 is redirected to file descriptor 1, which means, standard error is also redirected to standard output. So, if standard output was pointed to a file, the standard error will also be pointed to the same file where the standard output is pointing.
+4. Order of redirection is important.
+
+{{{bash
+# Error Redirection
+# Using output redirection >, we can send the output of any command to a file.
+# However, when the command displays an error, that doesn't go to the redirected file.
+ls -l /etc/doesnotexist.conf > /tmp/output1.txt
+cat /tmp/output1.txt
+}}}
+
+{{{bash
+# We have to redirect the error messages.
+ls -l /etc/doesnotexist.conf &>> /tmp/output1.txt      # append mode (>>)
+ls -l /etc/doesnotexist.conf  >> /tmp/output1.txt 2>&1 # the same
+}}}
+
+`ls -l /etc/doesnotexist.conf 2>&1 >/tmp/1.txt`
+
+Means something different.
+- `2>&1` indicates that standard error `(2>)` is redirected to the same file descriptor associated with standard output `(&1)`. Since standard output at this stage is the terminal, the error messages go to the terminal, and not to the `/tmp/1.txt` file that comes next.
+- `>/tmp/1.txt` redirects standard output, so the output would go to the `/tmp/1.txt` file. `However, standard error was already redirected, and is not changed!!!`
+
+{{{bash
+cat /tmp/output1.txt
+}}}
+
+#### Pipe Standard Error to Other Commands Using `|&`
+
+{{{bash
+# pipes only the standard output, not the error:
+ls -l /etc/doesnotexists.conf | wc
+}}}
+
+{{{bash
+# pipes both standard output and error
+ls -l /etc/doesnotexists.conf 2>&1 | wc
+}}}
+
+{{{bash
+# |& is an easier way is to do the same
+ls -l /etc/doesnotexists.conf |& wc
+}}}
+
+### Here Documents
+
+Using the `HERE document syntax`, you can send commands to an interactive program from a shell script.
+<br><code>
+ftp -in URL << SCRIPTEND
+user USERNAME PASSWORD
+binary
+cd PATH
+mget PATH
+SCRIPTEND
+</code>
+
+{{{bash
+cat > /tmp/cities.txt <<EOF
+Los Angeles
+    Las Vegas
+    San Francisco
+Santa Monica
+EOF
+}}}
+
+{{{bash
+cat /tmp/cities.txt
+}}}
+
+    Los Angeles
+        Las Vegas
+        San Francisco
+    Santa Monica
+    [?2004h
+
+{{{bash
+# remove leading tabs with <<-EOF
+# Note: <<-EOF removes only leading tabs and not leading spaces.
+# Do this in a real shell with tabs. This kernel replaces tabs with spaces.
+cat >> /tmp/cities.txt <<-EOF
+Los Angeles
+    Las Vegas
+    San Francisco
+Santa Monica
+EOF
+}}}
+
+{{{bash
+cat /tmp/cities.txt
+}}}
+
+{{{bash
+rm /tmp/cities.txt
+}}}
+
+#### Another variation of HERE document is `<<<`
+where we don't need to specify the keyword to start the block and end the block. The string that we pass after <<< itself is used as input to the command. This is helpful when you are creating a file with just one line entry in it, as shown below.
+
+{{{bash
+cat >> /tmp/newfile.txt <<< this-is-good
+}}}
+
+{{{bash
+cat /tmp/newfile.txt
+}}}
+
+### Process List
+
+Process substitution creates a named pipe under /dev/fd, which is used by multiple commands to write the output, and the other command to
+read from it for its input.
+
+- `>(list-of-commands)` will read the input from `/dev/fd/xx`
+- `<(list-of-commands)` will write the output to `/dev/fd/xx`
+
+{{{bash
+# Do this in a real shell
+# wc -l <(ls /etc/; cat /etc/passwd; echo "Hello World")
+}}}
+
+{{{bash
+# using diff to compare the output of two ls commands
+# diff <(ls) <(ls -a)
+# As we explained above, each <( ) creates a /dev/fd/xx file. If you add an
+# echo command in front of the above diff statement, you can see that it
+# is really doing the diff between the two /dev/fd/xx streams that contain
+# the output of the corresponding ls commands.
+# echo diff -w <(ls) <(ls -a)
+}}}
+
+{{{bash
+# using diff to compare two directory listings
+# diff <(ls /etc/) <(ls /backup/etc)
+}}}
+
+###  `/dev/null`
+
+`/dev/null` is the null device. Anything that goes into it never comes back. If anything comes out of it, it is just nothing.
+
+{{{bash
+ls -l /etc/passwd /etc/junk
+}}}
+
+{{{bash
+# Ignore the standard output.
+ls -l /etc/passwd /etc/junk > /dev/null
+}}}
+
+{{{bash
+# Ignore the standard error.
+ls -l /etc/passwd /etc/junk 2> /dev/null
+}}}
+
+{{{bash
+# Ignore both standard output and standard error.
+ls -l /etc/passwd /etc/junk &> /dev/null
+}}}
+
+### Command Grouping with `()` and `{}`
+
+- ( command1; command2; .... commandn )
+- { command1; command2; .... commandn; }
+
+**Note**: It is very important to note that the `semi-colon` after the last command `is
+required` within the `{ }` grouping.
+
+`()` creates a `sub-shell` and executes all the commands that are enclosed in that new `sub-shell environment`.
+`{}` doesn't create a sub shell. Bash executes all the commands that are enclosed in the `current shell environment`.
+
+`{ }` is extremely useful when you combine it with `&&` or `||`.
+
+{{{bash
+file=/tmp/tmpfile.txt
+touch $file
+[ -e $file ] && { rm $file || echo "Unable to delete $file"; }
+}}}
+
+### Set Builtin
+
+- Display shell variables and their values, including the environment variable, functions, etc.
+- Manipulate the shell options (view/modify shell options)
+- Set positional parameters
+
+{{{bash
+# View Shell Variables
+set
+}}}
+
+{{{bash
+# Set Shell Options
+set -o noglob
+}}}
+
+{{{bash
+# Unset Shell Options
+set +o noglob
+}}}
+
+{{{bash
+# set --help
+set -o noglob
+set -f         # one character option; see "set --help"
+}}}
+
+{{{bash
+# view all the current shell options that are set
+echo $-
+}}}
+
+{{{bash
+# unset option
+set +o noglob
+set +f         # one character option
+}}}
+
+###  Coproc Builtin
+
+`coproc [NAME] command`
+
+Using `coproc` you can start a background process and interact with its input and output. This is just like starting a job in the background with `&`, however with the coproc builtin you can establish `two-way communication` between the background process and the shell that created the process.
+
+Coproc creates the following three environment variables.
+- `NAME_PID` that stores the `process id` of the background process that was called using coproc.
+- `NAME[0]` contains the file descriptor for the `standard output` of the background process
+- `NAME[1]` contains the file descriptor for the `standard input` of the background process.
+
+If you don't specify a name for the coproc, the default name is `COPROC`.
+
+{{{bash
+coproc CUSTOM { ls -l; sleep 2; cat /etc/passwd; sleep 2; }
+echo "CUSTOM_PID=$CUSTOM_PID"
+echo "CUSTOM[0]=${CUSTOM[0]}"
+echo "CUSTOM[1]=${CUSTOM[1]}"
+}}}
+
+{{{bash
+echo $PASSWD
+}}}
+
+### Bash Environment Variables
+
+Exporting an environment variable is a `one way operation`, i.e, you can only export environment variables `from parent to child`. You cannot export an environment variable from child to parent.
+
+{{{bash
+# show all environment variables
+export
+}}}
+
+{{{bash
+# show all environment variables
+# same as above
+declare -x
+}}}
+
+{{{bash
+# create an environment variable use "export" or "declare -x"
+export PASSWD=/etc/passwd
+declare -x PASSWD=/etc/passwd   # the same
+}}}
+
+{{{bash
+# erase environment variable
+unset PASSWD
+}}}
+
+### Trapping Signals using trap
+
+<code>trap command SIGNAL</code>
+
+{{{bash
+# See all OS signals
+man 7 signal
+}}}
+
+#### Trap is very helpful for debugging your shell script. Use the `DEBUG signal` and echo the variables that you want to watch in the trap command.
+
+{{{bash
+trap 'echo Debugging day=$day i=$i' DEBUG
+
+i=1
+for day in Mon Tue Wed Thu Fri; do
+    echo "Weekday $((i++)) : $day"
+    if [ $i -eq 3 ]; then
+        break;
+    fi
+done
+}}}
+
+#### Automatic Case Conversion using declare
+
+- `declare -l` will treat the content of the variable as `lower case`
+- `declare -u` will treat the content of the variable as `upper case`
+- `declare -c` will treat the content of the variable as `capitalized`
+
+{{{bash
+declare -l small
+small="THIS IS ACTUALLY ALL LOWER CASE!"
+echo $small
+}}}
+
+{{{bash
+declare -c capital
+capital="this is small and BIG!"
+echo $capital   # First letter is upper case the rest lower case
+}}}
+
+### Exec Builtin
+
+- `exec` built-in is used to replace the current shell with the given command. This is helpful when you are writing a wrapper program for a standard command.
+- When you use the exec command inside your custom shell script, it should be the `last command`. Commands in the shell script after exec are not executed since the shell running the script is replaced by the one specified the exec command.
+
+{{{bash
+echo "Wrapper for tar command"
+echo " Doing some pre processing"
+exec "/bin/tar" "$@"
+echo " Doing some post processing"   # This will never be executed!
+}}}
+
+### Commenting Bash Code
+
+{{{bash
+# This is a single line comment
+echo "This is a partial line comment"   # This is a partial line comment
+}}}
+
+{{{bash
+# The word COMMENT is arbitrarily chosen
+: <<COMMENT
+-------------------------------------------
+This is a multi-line comment
+-------------------------------------------
+COMMENT
+}}}
+
+{{{bash
+# Comment large blocks of code temporarily
+: <<TEMP
+for i in "${array[@]}"; do
+    echo $i
+done
+TEMP
+}}}
+
+### Source or Dot Command
+
+- To execute a shell-script in the current shell.
+- Both are the same:
+    - <code>source ~/.bash_profile</code>
+    - <code>$ . ~/.bash_profile</code>
+
+### Caller Builtin
+
+The caller command `prints the context` of the current subroutine call, i.e. it displays the `line number and filename` from which it was called.
+
+{{{bash
+# You can use a real shell to try out this example.
+function function1 {
+    caller
+}
+
+function function2 {
+    caller 0
+}
+
+function1
+function1
+function2
+function2
+}}}
+
+### Parameter Expansion Using `:-`, `-`, `:=` , `=`, `:+` and `:?`
+
+- `${variable:-defaultvalue}`<br>
+    To test whether a parameter is unset (or null) use the default value option.
+- `${variable-defaultvalue}`<br>
+    The difference between `:-` and `-` is the operation performed when the value of the variable is null.
+    - If the variable is null, `-` will `not return the default value`.
+    -  If the variable is null, `:-` will `return the default value`.
+- `${variable:=defaultvalue}`<br>
+    This expression `does change` the value of the variable. When the parameter is unset (or not defined), or when the variable is defined but has a null value, this sets the defaultvalue to the variable.
+- `${variable=defaultvalue}`<br>
+    The difference between `:=` and `=` is that if the value of the variable is null, `=`  will not assign the default value to the variable. `A null variable will stay null.`
+- `${variable:+newvalue}`<br>
+    When the parameter has a value already, the newvalue is assigned to the variable; if not nothing happens. `:+ is exact opposite of :-` When the variable contains a value, this returns the newvalue. It doesn't change the value of the variable.
+- `${variable:?errormessage}`<br>
+    When the parameter is null or not set, the errormessage will be displayed and the shell script will terminate with the exit status 1.
+
+### Parameter References
+
+`!` in front of a variable name that is enclosed in `${ }` is used to expand the names of the variables that match that prefix pattern.
+
+{{{bash
+city1="Los Angeles"
+city2="San Francisco"
+city3="New York"
+echo "${!city*}"
+
+for varname in ${!city*}; do
+    echo $varname
+done
+}}}
+
+{{{bash
+# define a pointer to a variable name
+city_in_california="Los Angeles"
+echo "1. $city_in_california"
+pointer=${!city_in_california}          # expand "city_in_california; there is only one"
+echo "2. $pointer"
+var=${!pointer}                         # expand "pointer"
+echo "3. $var"
+}}}
+
+### Case Conversion using Parameter Expansion
+
+The following characters are used to control case conversion inside `{ }`
+
+|Character(s)|Description|
+|:--|:--|
+|`^^`|Convert all characters to uppercase|
+|`,,`|Convert all characters to lowercase|
+|`~~`|Invert case for all characters|
+|`^`|Convert only first character to upper case|
+|`,`|Convert only first character to lower case|
+|`~`|Invert case for first character in first word|
+
+{{{bash
+echo "To Lowercase"
+string="A FEW WORDS"
+echo "1. ${string} -> ${string,}"
+echo "2. ${string} -> ${string,,}"
+echo "3. ${string} -> ${string,,[AEIUO]}"   # lowercase only vowels
+echo "-----------------------"
+echo "To Uppercase"
+string="a few words"
+echo "4. ${string} -> ${string^}"
+echo "5. ${string} -> ${string^^}"
+echo "6. ${string} -> ${string^^[aeiou]}"      # uppercase only vowels
+echo "-----------------------"
+echo "Toggle Case"
+string="A Few Words"
+echo "7. ${string} -> ${string~~}"
+string="A FEW WORDS"
+echo "8. ${string} -> ${string~}"
+string="a few words"
+echo "9. ${string} -> ${string~}"
+}}}
+
+###  Substring Using Parameter Expansion `${variable:start:length}`
+
+{{{bash
+#       01234567890
+#       09876543210
+string="A Few Words"
+echo "1. ${string:6}"
+echo "2. ${string:0:5}"
+echo "3. ${string:3}"
+echo "4. ${string::-6}"
+}}}
+
+###  Find and Replace using `${variable/originalstring/replacementstring}`
+
+- Use `${variable//originalstring/replacementstring}` for `global` replacement.
+- Use `${variable/deletepattern/}` for `deleting` by omitting replacement string.
+- Use `${variable/#pattern/replacement}` for `prefix` find and replace.
+- Use `${variable/%pattern/replacement}` for `suffix` find and replace.
+
+{{{bash
+city="Los Angeles"
+echo "${city/Angeles/Altos}"
+echo "${city/e/E}"
+echo "${city//e/E}"               # global replacement
+echo "${city/Los /}"              # delete substring
+echo "${city/#Los/City of Los}"   # prefix find and replace
+echo "${city/%Angeles/Altos}"     # suffix find and replace
+}}}
+
+### Chopping strings
+
+{{{bash
+basename /usr/local/share/doc/foo/foo.txt
+}}}
+
+{{{bash
+dirname /usr/local/share/doc/foo/foo.txt
+}}}
+
+{{{bash
+dirname /usr/local/share/doc/foo
+}}}
+
+{{{bash
+basename /usr/local/share/doc/foo/
+}}}
+
+{{{bash
+MYVAR=foodforthought.jpg
+}}}
+
+{{{bash
+# chop off longest substring from the beginning
+echo ${MYVAR##*fo}
+}}}
+
+{{{bash
+# chop off shortest substring from the beginning
+echo ${MYVAR#*fo}
+}}}
+
+#### How to remember all this
+- When searching for the longest match, use ## (because ## is longer than #)
+- On a US keyboard, shift-4 is `$`, which is the bash variable expansion character. On the keyboard, immediately to the left of `$` is `#`. So, you can see that `#` is `at the beginning` of `$`, and thus (according to this mnemonic), `#` removes characters from the beginning of the string.
+
+{{{bash
+# chop from the end
+MYFOO="chickensoup.tar.gz"
+echo ${MYFOO%%.*}
+echo ${MYFOO%.*}
+}}}
+
+{{{bash
+MYFOOD="chickensoup"
+echo ${MYFOOD%%soup}    # the asterisk is not necessary
+}}}
+
+    chickenh[?2004l
+    [?2004h
+
+#### How to remember all this
+- If you forget whether to use `#` or `%`, look at the 3, 4, and 5 keys on your keyboard and figure it out.
+
+{{{bash
+EXCLAIM=cowabunga
+echo ${EXCLAIM:0:3}
+echo ${EXCLAIM:3:7}
+}}}
+
+{{{bash
+function check_file_extension {
+    if [ "${1##*.}" = "tar" ]; then
+        echo This appears to be a tarball.
+    else
+        echo At first glance, this does not appear to be a tarball.
+    fi
+}
+
+check_file_extension file.tar
+check_file_extension file.tgz
+}}}
+
+{{{bash
+file="mydocument.txt"
+echo "$file -> ${file%.txt}"      # use string substitution to remove file extensions
+echo ${file%.txt}.doc
+for file in file1.txt file2.txt file3.txt; do
+    echo mv $file ${file%.txt}.doc
+done
+}}}
+
+{{{bash
+# RANDOM
+# Reading a file
+}}}
+
+{{{bash
+type -t getopts
+}}}
