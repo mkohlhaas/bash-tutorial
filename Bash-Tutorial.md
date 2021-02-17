@@ -1,4 +1,4 @@
-heck Bash Version
+Check Bash Version
 
 ``` bash
 echo $BASH_VERSION

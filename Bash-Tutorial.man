@@ -1,0 +1,54 @@
+S Check Bash Version
+.IP
+.nf
+\f[C]
+echo $BASH_VERSION
+\f[R]
+.fi
+.SH Variables
+.IP
+.nf
+\f[C]
+myname=\[dq]Hans Schmid\[dq]
+echo \[dq]Hello, $myname_lst\[dq]
+\f[R]
+.fi
+.IP
+.nf
+\f[C]
+echo $myname
+\f[R]
+.fi
+.SH String interpolation
+.IP
+.nf
+\f[C]
+echo \[dq]$myname\[dq]
+\f[R]
+.fi
+.SS Literal string
+.IP
+.nf
+\f[C]
+echo \[aq]$myname\[aq]
+\f[R]
+.fi
+.IP
+.nf
+\f[C]
+type pwd
+\f[R]
+.fi
+.IP
+.nf
+\f[C]
+echo $(pwd)
+\f[R]
+.fi
+.IP
+.nf
+\f[C]
+echo $PWD   # the same
+\f[R]
+.fi
+.SS Backticks are regarded as obsolete. But hard to kill in the field.
